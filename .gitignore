@@ -2,6 +2,8 @@ node_modules/
 build/
 dist/
 coverage/
+__pycache__/
+dev-dist/
 .DS_Store
 *.log
 .env*
