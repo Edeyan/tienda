@@ -1,0 +1,115 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profiles and credentials",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 255 },
+        "role": { "type": "string", "enum": ["admin", "seller", "customer"] },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "role", "status", "createdAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Store products inventory",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "maxLength": 200 },
+        "price": { "type": "number" },
+        "category": { "type": "string" },
+        "section": { "type": "string" },
+        "brand": { "type": "string" },
+        "sku": { "type": "string" },
+        "image": { "type": "string" }
+      }
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer orders",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orderNumber": { "type": "string" },
+        "userId": { "type": "string", "maxLength": 128 },
+        "customerName": { "type": "string", "maxLength": 100 },
+        "customerEmail": { "type": "string", "maxLength": 255 },
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["completada", "pendiente", "despachada", "cancelada"] },
+        "paymentMethod": { "type": "string" },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "StoreSettings": {
+      "title": "StoreSettings",
+      "description": "Global store settings",
+      "type": "object",
+      "properties": {
+        "storeName": { "type": "string" },
+        "storeSubtitle": { "type": "string" },
+        "currency": { "type": "string" }
+      }
+    },
+    "FCMDeviceToken": {
+      "title": "FCMDeviceToken",
+      "description": "Registered mobile and browser devices for push notifications",
+      "type": "object",
+      "properties": {
+        "token": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "device": { "type": "string" },
+        "platform": { "type": "string", "enum": ["android", "ios", "desktop", "pwa"] },
+        "isMobile": { "type": "boolean" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["token", "updatedAt"]
+    },
+    "OrderNotification": {
+      "title": "OrderNotification",
+      "description": "Logged order push notifications sent to devices",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string" },
+        "orderNumber": { "type": "string" },
+        "customerEmail": { "type": "string" },
+        "status": { "type": "string" },
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "sentAt": { "type": "string" }
+      },
+      "required": ["orderNumber", "title", "body", "sentAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles. userId matches Auth UID."
+    },
+    "products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Inventory products."
+    },
+    "orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Placed orders."
+    },
+    "fcm_tokens/{tokenId}": {
+      "schema": { "$ref": "#/entities/FCMDeviceToken" },
+      "description": "Registered mobile devices for FCM order push alerts."
+    },
+    "order_notifications/{notifId}": {
+      "schema": { "$ref": "#/entities/OrderNotification" },
+      "description": "Logs of order notifications sent to clients."
+    },
+    "settings/global": {
+      "schema": { "$ref": "#/entities/StoreSettings" },
+      "description": "Global settings for the store."
+    }
+  }
+}

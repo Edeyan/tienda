@@ -1,0 +1,8 @@
+{
+  "firestore": [
+    {
+      "database": "ai-studio-businesscatlogoy-5e10c7ec-75f2-43d1-901c-ce07f911170c",
+      "rules": "firestore.rules"
+    }
+  ]
+}

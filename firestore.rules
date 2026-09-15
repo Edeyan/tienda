@@ -1,0 +1,146 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Core Primitives
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null; }
+    function isPrimaryAdmin() {
+      return isSignedIn() && request.auth.uid == '6FCDYAhL3IW1K4ZuvLOLBjullv83' &&
+             request.auth.token.email == 'exporte2000@gmail.com';
+    }
+    
+    // Check if the user is an admin
+    function isAdmin() {
+      return isPrimaryAdmin();
+    }
+    
+    // Validation Helpers
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'name', 'email', 'role', 'status', 'createdAt']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() <= 100 &&
+             data.email is string && data.email.size() <= 255 &&
+             data.role in ['admin', 'seller', 'customer'] &&
+             data.status in ['active', 'inactive'] &&
+             data.createdAt is string;
+    }
+    
+    function isValidProduct(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() <= 200 &&
+             data.price is number;
+    }
+    
+    function isValidOrder(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.orderNumber is string && data.orderNumber.size() <= 100 &&
+             data.customerName is string && data.customerName.size() <= 100 &&
+             data.total is number &&
+             data.status in ['completada', 'pendiente', 'despachada', 'cancelada'] &&
+             data.createdAt is string;
+    }
+
+    function isValidStoreSettings(data) {
+      return data.storeName is string && data.storeName.size() <= 100;
+    }
+
+    // 3. Collection Rules
+    
+    match /admins/{adminId} {
+      allow read: if isSignedIn() && adminId == request.auth.uid;
+      allow write: if isAdmin();
+    }
+
+    match /users/{userId} {
+      // Users can read their own profile. Admins can read all.
+      allow get: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+      // Explicitly protect lists
+      allow list: if isAdmin();
+      
+      // Users can create their own profile, but cannot self-assign admin/seller roles
+      allow create: if isSignedIn() && isValidId(userId) &&
+                       isValidUser(incoming()) &&
+                       incoming().id == userId &&
+                       (
+                         (request.auth.uid == userId &&
+                          incoming().email == request.auth.token.email &&
+                          incoming().role == 'customer') ||
+                         (isAdmin() && incoming().role in ['customer', 'seller'])
+                       );
+                       
+      // Users can update their own profile, but cannot change role/status. Admins can update all.
+      allow update: if isSignedIn() && isValidId(userId) && isValidUser(incoming()) && (
+        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'avatar', 'phone', 'whatsapp', 'country', 'travelerProfile', 'preferences']) && incoming().role == existing().role && incoming().status == existing().status) ||
+        (isAdmin() && (userId == request.auth.uid || incoming().role != 'admin'))
+      );
+      allow delete: if isAdmin() && userId != request.auth.uid;
+    }
+    
+    match /products/{productId} {
+      // Anyone can read products
+      // Collection reads cannot be proven safe from a path wildcard alone;
+      // validate identifiers when documents are created or updated instead.
+      allow read: if true;
+      
+      // Only admins can write
+      allow create: if isAdmin() && isValidId(productId) && isValidProduct(incoming());
+      allow update: if isAdmin() && isValidId(productId) && isValidProduct(incoming());
+      allow delete: if isAdmin() && isValidId(productId);
+    }
+    
+    match /orders/{orderId} {
+      // Users can read their own orders. Admins can read all.
+      allow get: if isSignedIn() && isValidId(orderId) && (existing().userId == request.auth.uid || isAdmin());
+      // Explicitly enforce list querying
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      
+      // Users can create orders for themselves.
+      allow create: if isSignedIn() && isValidId(orderId) &&
+                       isValidOrder(incoming()) &&
+                       (isAdmin() || incoming().userId == request.auth.uid);
+                       
+      // Only admins can update orders (e.g. status)
+      allow update: if isAdmin() && isValidId(orderId) && isValidOrder(incoming());
+      allow delete: if isAdmin() && isValidId(orderId);
+    }
+    
+    match /settings/global {
+      // Anyone can read settings
+      allow read: if true;
+      // Only admins can write
+      allow create, update: if isAdmin() && isValidStoreSettings(incoming());
+    }
+
+    // FCM Device Tokens for Push Notifications
+    match /fcm_tokens/{tokenId} {
+      // Devices may only manage their own token; admins may manage all tokens.
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update: if isSignedIn() && (isAdmin() || existing().userId == request.auth.uid);
+      allow read: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+    }
+
+    // Order push notifications logs
+    match /order_notifications/{notifId} {
+      allow read: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+      allow create, update: if isAdmin() || (isSignedIn() && incoming().userId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // Promotional push notifications logs
+    match /promo_notifications/{promoId} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}
