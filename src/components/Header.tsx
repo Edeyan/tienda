@@ -185,6 +185,9 @@ export const Header: React.FC = () => {
                   {viewMode === 'admin' ? 'Ver Catálogo Público' : 'Ir a Panel de Control'}
                 </button>
 
+                <div className="px-3 py-1 text-[10px] font-semibold tracking-wider text-slate-500 text-right">
+                  v4.0
+                </div>
 
                 <div className="border-t border-slate-800 my-1"></div>
 
