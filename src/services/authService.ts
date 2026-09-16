@@ -19,6 +19,8 @@ import { syncFirebase } from './firestoreSync';
 
 import { gmailService } from './gmailService';
 
+let googleSignInInProgress = false;
+
 const getAuthErrorMessage = (error: unknown, fallback: string): string => {
   const code = typeof error === 'object' && error !== null && 'code' in error
     ? String(error.code)
@@ -90,6 +92,11 @@ export const firebaseAuthService = {
 
   // Sign in with Google Popup
   signInWithGoogle: async (): Promise<{ success: boolean; user?: FirebaseUser; error?: string }> => {
+    if (googleSignInInProgress) {
+      return { success: false, error: 'Ya hay una ventana de Google abierta. Completa ese proceso o ciérrala para intentarlo de nuevo.' };
+    }
+
+    googleSignInInProgress = true;
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
@@ -114,6 +121,8 @@ export const firebaseAuthService = {
         msg = getAuthErrorMessage(error, msg);
       }
       return { success: false, error: msg };
+    } finally {
+      googleSignInInProgress = false;
     }
   },
 
@@ -139,6 +148,8 @@ export const firebaseAuthService = {
         msg = 'El formato del correo electrónico es inválido.';
       } else if (error.code === 'auth/too-many-requests') {
         msg = 'Demasiados intentos fallidos. Intenta más tarde.';
+      } else if (error.code === 'auth/user-disabled') {
+        msg = 'Esta cuenta está desactivada. Contacta al administrador.';
       } else {
         msg = getAuthErrorMessage(error, msg);
       }

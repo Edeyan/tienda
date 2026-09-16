@@ -940,7 +940,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setUsers(prev => [newUser, ...prev]);
     setCurrentUser(newUser);
-    await syncFirebase.saveUser(newUser);
+    try {
+      await syncFirebase.saveUser(newUser);
+    } catch (error) {
+      await firebaseAuthService.signOut();
+      setUsers(prev => prev.filter(user => user.id !== newUser.id));
+      setCurrentUser(null);
+      console.error('No se pudo crear el perfil de Google en Firestore.', error);
+      return {
+        success: false,
+        message: 'Google inició sesión, pero no se pudo guardar el perfil. Verifica las reglas de Firestore e inténtalo de nuevo.'
+      };
+    }
 
     try {
       confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
@@ -952,7 +963,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const loginWithFirebaseEmail = async (email: string, password: string): Promise<{ success: boolean; message?: string }> => {
     // Try Firebase Email Auth first
-    if (password && password.length >= 6) {
+    if (password && password.length >= 8) {
       const fbRes = await firebaseAuthService.signInWithEmail(email, password);
       if (fbRes.success && fbRes.user) {
         const cleanEmail = email.trim().toLowerCase();

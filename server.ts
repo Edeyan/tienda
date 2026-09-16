@@ -30,7 +30,15 @@ async function startServer() {
 
   // API: Health check
   app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok", timestamp: new Date().toISOString() });
+    res.json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      services: {
+        gemini: {
+          configured: Boolean(process.env.GEMINI_API_KEY),
+        },
+      },
+    });
   });
 
   // API: Scrape external web URL or parse content with AI

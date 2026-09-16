@@ -1,5 +1,7 @@
 import { 
   signInWithPopup, 
+  linkWithPopup,
+  reauthenticateWithPopup,
   GoogleAuthProvider, 
   User as FirebaseUser,
   onAuthStateChanged
@@ -43,6 +45,7 @@ export interface GmailDraft {
 // In-memory token management
 let cachedAccessToken: string | null = null;
 let cachedGoogleUser: FirebaseUser | null = null;
+let gmailConnectionInProgress = false;
 
 // Clear cached token on sign out
 onAuthStateChanged(auth, (user) => {
@@ -108,13 +111,28 @@ export const gmailService = {
 
   // Connect Gmail via Google Popup with required scopes
   connectGmail: async (): Promise<{ success: boolean; token?: string; user?: FirebaseUser; error?: string }> => {
+    if (gmailConnectionInProgress) {
+      return { success: false, error: 'Ya hay una autorización de Gmail abierta.' };
+    }
+
+    gmailConnectionInProgress = true;
     try {
       const provider = new GoogleAuthProvider();
       // Add Gmail scopes & Drive scopes
       [...GMAIL_SCOPES].forEach(scope => provider.addScope(scope));
       provider.setCustomParameters({ prompt: 'consent select_account' });
 
-      const result = await signInWithPopup(auth, provider);
+      // Link Gmail to the existing Firebase session when possible. This keeps
+      // connecting Gmail from replacing the BUSINESS user session.
+      const currentUser = auth.currentUser;
+      const hasGoogleProvider = currentUser?.providerData.some(
+        ({ providerId }) => providerId === 'google.com'
+      );
+      const result = currentUser && hasGoogleProvider
+        ? await reauthenticateWithPopup(currentUser, provider)
+        : currentUser
+          ? await linkWithPopup(currentUser, provider)
+          : await signInWithPopup(auth, provider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
 
       if (!credential?.accessToken) {
@@ -136,10 +154,15 @@ export const gmailService = {
         msg = 'La ventana de autorización de Google fue cerrada.';
       } else if (error.code === 'auth/popup-blocked') {
         msg = 'La ventana emergente fue bloqueada por el navegador.';
+      } else if (error.code === 'auth/credential-already-in-use' || error.code === 'auth/provider-already-linked') {
+        msg = 'Esta cuenta de Google ya está vinculada. Vuelve a abrir Gmail para renovar el acceso.';
+        cachedAccessToken = null;
       } else if (error.message) {
         msg = error.message;
       }
       return { success: false, error: msg };
+    } finally {
+      gmailConnectionInProgress = false;
     }
   },
 
