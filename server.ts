@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 
+dotenv.config({ path: ".env.local" });
 dotenv.config();
 
 async function startServer() {
